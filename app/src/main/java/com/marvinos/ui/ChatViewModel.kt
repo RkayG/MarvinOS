@@ -7,9 +7,10 @@ import com.marvinos.ai.DeviceContextBuilder
 import com.marvinos.ai.FallbackMatcher
 import com.marvinos.ai.GeminiApiClient
 import com.marvinos.ai.IntentParser
+import com.marvinos.intelligence.DeviceProfiler
+import com.marvinos.intelligence.GameCompatChecker
 import com.marvinos.model.ActionResult
 import com.marvinos.model.ActionType
-import com.marvinos.model.DeviceProfile
 import com.marvinos.model.Message
 import com.marvinos.model.ParsedIntent
 import com.marvinos.permissions.PermissionManager
@@ -27,7 +28,9 @@ class ChatViewModel @Inject constructor(
     private val fallbackMatcher: FallbackMatcher,
     private val actionExecutor: ActionExecutor,
     private val permissionManager: PermissionManager,
-    private val deviceContextBuilder: DeviceContextBuilder
+    private val deviceContextBuilder: DeviceContextBuilder,
+    private val deviceProfiler: DeviceProfiler,
+    private val gameCompatChecker: GameCompatChecker
 ) : ViewModel() {
 
     private val _messages = MutableStateFlow<List<Message>>(
@@ -38,57 +41,47 @@ class ChatViewModel @Inject constructor(
     private val _pendingIntent = MutableStateFlow<ParsedIntent?>(null)
     val pendingIntent: StateFlow<ParsedIntent?> = _pendingIntent.asStateFlow()
 
-    // Simplified profile for MVP. In Sprint 6 this comes from DeviceProfiler.
-    private val mockDeviceProfile = DeviceProfile(
-        chipsetName = "Snapdragon 778G",
-        chipsetTier = "upper-mid",
-        totalRamBytes = 6L * 1024 * 1024 * 1024,
-        availRamBytes = 2L * 1024 * 1024 * 1024,
-        freeStorageBytes = 42L * 1024 * 1024 * 1024,
-        totalStorageBytes = 128L * 1024 * 1024 * 1024,
-        gpuGlesVersion = "3.2",
-        cpuCores = 8,
-        displayRefreshHz = 120f,
-        androidVersion = 14f
-    )
-
     fun sendMessage(text: String) {
         if (text.isBlank()) return
 
-        // 1. Add user message
         addMessage(Message.user(text))
         
-        // 2. Add loading state
         val loadingId = java.util.UUID.randomUUID().toString()
         addMessage(Message(id = loadingId, role = com.marvinos.model.MessageRole.ASSISTANT, content = "", isLoading = true))
 
         viewModelScope.launch {
             try {
-                // 3. Prepare AI prompt
+                // Sprint 6: Live telemetry injection
                 val promptText = if (text.lowercase().contains("specs") || text.lowercase().contains("play")) {
-                    deviceContextBuilder.buildDeviceInfoPrompt(mockDeviceProfile, text)
+                    val profile = deviceProfiler.getCurrentProfile()
+                    if (text.lowercase().contains("play") || text.lowercase().contains("run")) {
+                        deviceContextBuilder.buildGameCompatPrompt(profile, text, gameCompatChecker.getGameDatabaseJson())
+                    } else {
+                        deviceContextBuilder.buildDeviceInfoPrompt(profile, text)
+                    }
                 } else {
                     text
                 }
 
-                // 4. API Call
                 val jsonResponse = try {
                     geminiApiClient.sendMessage(promptText)
                 } catch (e: Exception) {
                     null
                 }
 
-                // 5. Parse or Fallback
                 val intent = if (jsonResponse != null) {
                     intentParser.parse(jsonResponse, text)
                 } else {
                     fallbackMatcher.match(text)
                 }
 
-                // Remove loading message
                 removeMessage(loadingId)
-
-                // 6. Handle Intent
+                
+                // For intelligence queries, Gemini generates the prose answer directly via JSON or we can render it.
+                // But architecture specifies the response should be plain english from Gemini.
+                // Our prompt instructs it to return JSON, so we handle the prose either via another prompt
+                // or we rely on the ActionEngine to format it. Let's send it to the Action Engine.
+                
                 processIntent(intent)
 
             } catch (e: Exception) {
@@ -104,7 +97,6 @@ class ChatViewModel @Inject constructor(
             return
         }
 
-        // Check Permissions
         val requiredPermission = permissionManager.getMissingPermissionFor(intent.action)
         if (requiredPermission != null) {
             val rationale = permissionManager.getRationaleFor(requiredPermission)
@@ -113,18 +105,15 @@ class ChatViewModel @Inject constructor(
                 "I need permission to do that.",
                 ActionResult.RequiresPermission(requiredPermission, settingsAction, rationale)
             ))
-            // We store the intent to retry later if permission is granted
             _pendingIntent.value = intent
             return
         }
 
-        // Confirmation Gate
         if (ActionExecutor.requiresConfirmation(intent)) {
             _pendingIntent.value = intent
             return
         }
 
-        // Execute directly if read-only
         executeIntent(intent)
     }
 
@@ -139,14 +128,6 @@ class ChatViewModel @Inject constructor(
     fun cancelPendingIntent() {
         _pendingIntent.value = null
         addMessage(Message.system("Action cancelled."))
-    }
-
-    fun retryPendingIntent() {
-        val intent = _pendingIntent.value ?: return
-        _pendingIntent.value = null
-        viewModelScope.launch {
-            processIntent(intent)
-        }
     }
 
     private suspend fun executeIntent(intent: ParsedIntent) {
