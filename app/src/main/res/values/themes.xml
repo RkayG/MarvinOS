@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.MarvinOS" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
