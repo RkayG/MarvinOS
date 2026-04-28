@@ -22,7 +22,7 @@ import javax.inject.Singleton
 @Singleton
 class PermissionManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val specialPermissionHelper: SpecialPermissionHelper
+    val specialPermissionHelper: SpecialPermissionHelper
 ) {
 
     /**

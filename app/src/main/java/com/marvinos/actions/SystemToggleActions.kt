@@ -9,6 +9,8 @@ import android.provider.Settings
 import androidx.appcompat.app.AppCompatDelegate
 import com.marvinos.model.ActionResult
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -133,9 +135,9 @@ class SystemToggleActions @Inject constructor(
         }
         
         // This must run on the main thread ideally, but AppDelegate handles it safely.
-        androidx.compose.ui.platform.AndroidUiDispatcher.Main.dispatch(kotlin.coroutines.EmptyCoroutineContext, Runnable {
+        withContext(Dispatchers.Main) {
             AppCompatDelegate.setDefaultNightMode(mode)
-        })
+        }
         
         val stateStr = when(enable) {
             true -> "on (Dark mode)"
