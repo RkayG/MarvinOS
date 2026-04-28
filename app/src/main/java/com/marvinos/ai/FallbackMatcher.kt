@@ -36,8 +36,7 @@ class FallbackMatcher @Inject constructor() {
         return ParsedIntent(
             action = ActionType.UNKNOWN,
             confidence = 0f,
-            clarificationQuestion = "I'm in offline mode and couldn't understand that. " +
-                    "Try: \"turn off WiFi\", \"flashlight on\", \"check my specs\".",
+            clarificationQuestion = "I couldn't quite understand that. Try asking something like \"turn off WiFi\", \"flashlight on\", or \"check my specs\".",
             rawInput = input
         )
     }
@@ -108,6 +107,16 @@ class FallbackMatcher @Inject constructor() {
         Rule(Regex("""(can|will|does?|could)\s+(my\s+)?(phone|device)?\s*(run|play|handle|support)\s+(.+)""")) { match, text ->
             val game = match.groupValues[5].trim()
             ParsedIntent(ActionType.GAME_COMPAT, target = game, value = null, confidence = 0.68f, rawInput = text)
+        },
+
+        // ── Personal / Identity (Marvin) ──────────────────────────────────────
+        Rule(Regex("""who\s+are\s+you|what\s+is\s+your\s+name|what\s+are\s+you""")) { _, text ->
+            ParsedIntent(
+                ActionType.UNKNOWN,
+                confidence = 0.5f,
+                clarificationQuestion = "I'm MarvinOS, your AI device assistant. I can help you manage settings, optimize performance, or check if your phone can run certain games. What can I do for you?",
+                rawInput = text
+            )
         }
     )
 

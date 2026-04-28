@@ -35,7 +35,8 @@ enum class ActionType {
  *                             instructions instead of executing directly.
  * @property confidence   0.0–1.0. Below 0.6 the app asks a clarifying question.
  * @property clarificationQuestion  Populated when [confidence] < 0.6.
- * @property rawInput     Original user text preserved for logging / fallback.
+ * @property response             Optional AI-generated natural language response for information queries.
+ * @property rawInput             Original user text preserved for logging / fallback.
  */
 @Serializable
 data class ParsedIntent(
@@ -56,6 +57,9 @@ data class ParsedIntent(
 
     @SerialName("clarificationQuestion")
     val clarificationQuestion: String? = null,
+
+    @SerialName("response")
+    val response: String? = null,
 
     val rawInput: String = ""
 ) {

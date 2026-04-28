@@ -89,6 +89,7 @@ class ChatViewModel @Inject constructor(
                 val jsonResponse = try {
                     geminiApiClient.sendMessage(promptText)
                 } catch (e: Exception) {
+                    android.util.Log.e("ChatViewModel", "Gemini error: ${e.message}", e)
                     null
                 }
 
@@ -154,6 +155,12 @@ class ChatViewModel @Inject constructor(
     }
 
     private suspend fun executeIntent(intent: ParsedIntent) {
+        // Use AI-generated response if available (for read-only queries like DEVICE_INFO, GAME_COMPAT)
+        if (!intent.response.isNullOrBlank() && intent.isReadOnly) {
+            addMessage(Message.assistant(intent.response))
+            return
+        }
+
         val result = actionExecutor.execute(intent)
         val responseText = when (result) {
             is ActionResult.Success -> result.message

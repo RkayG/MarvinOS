@@ -59,6 +59,7 @@ class IntentParser @Inject constructor() {
             val requiresGuidance = obj["requiresGuidance"]?.jsonPrimitive?.booleanOrNull ?: false
             val confidence = obj["confidence"]?.jsonPrimitive?.floatOrNull ?: 0f
             val clarification = obj["clarificationQuestion"]?.jsonPrimitive?.contentOrNull
+            val responseText = obj["response"]?.jsonPrimitive?.contentOrNull
 
             ParsedIntent(
                 action = action,
@@ -67,6 +68,7 @@ class IntentParser @Inject constructor() {
                 requiresGuidance = requiresGuidance,
                 confidence = confidence,
                 clarificationQuestion = clarification,
+                response = responseText,
                 rawInput = rawInput
             )
         } catch (e: Exception) {

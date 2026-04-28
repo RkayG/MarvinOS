@@ -44,6 +44,9 @@ class GeminiApiClient @Inject constructor() {
      *         or the response is empty.
      */
     suspend fun sendMessage(userMessage: String): String {
+        if (BuildConfig.GEMINI_API_KEY.isBlank()) {
+            throw GeminiApiException("Gemini API key is missing. Please add it to local.properties.")
+        }
         return try {
             withTimeout(TIMEOUT_MS) {
                 val response: GenerateContentResponse = model.generateContent(userMessage)
@@ -84,25 +87,35 @@ class GeminiApiClient @Inject constructor() {
                - "value": boolean (true=ON/enable, false=OFF/disable) or null if not applicable
                - "requiresGuidance": boolean — true if the action likely needs step-by-step instructions
                - "confidence": float between 0.0 and 1.0
-            3. If confidence < 0.6, add a "clarificationQuestion" field with a friendly question.
+               - "response": string or null
+               - "clarificationQuestion": string or null
+            3. If confidence < 0.6, "clarificationQuestion" must be a friendly question.
             4. SET_BRIGHTNESS: set "value" to null and use "target" for the level (e.g. "50", "max", "low").
             5. OPEN_SETTINGS: use "target" to specify which settings screen (e.g. "wifi", "bluetooth", "display", "battery", "storage", "accessibility", "apps").
             6. GAME_COMPAT: use "target" for the game name exactly as the user says.
             7. When the message contains DEVICE_CONTEXT, use it to answer DEVICE_INFO or GAME_COMPAT.
+               - For DEVICE_INFO: Populate "response" with a friendly, short summary of the specs in plain English (e.g. "You've got a snappy Snapdragon 8 Gen 2 with 12GB of RAM—plenty of power!").
+               - For GAME_COMPAT: Populate "response" with a verdict (Yes/No/Maybe) based on the hardware vs game requirements.
             8. Never invent fields not listed above.
             
             EXAMPLES:
             User: "turn off wifi"
-            {"action":"TOGGLE_WIFI","target":"wifi","value":false,"requiresGuidance":false,"confidence":0.98,"clarificationQuestion":null}
+            {"action":"TOGGLE_WIFI","target":"wifi","value":false,"requiresGuidance":false,"confidence":0.98,"clarificationQuestion":null,"response":null}
             
             User: "make my screen brighter"
-            {"action":"SET_BRIGHTNESS","target":"high","value":null,"requiresGuidance":false,"confidence":0.90,"clarificationQuestion":null}
+            {"action":"SET_BRIGHTNESS","target":"high","value":null,"requiresGuidance":false,"confidence":0.90,"clarificationQuestion":null,"response":null}
             
+            User: "check my specs"
+            DEVICE_CONTEXT: {"chipset":"MT6765V/WB","chipsetTier":"entry","totalRamGB":4.0,"availRamGB":1.2,"storageFreeGB":11.1,"gpuGles":"3.2","cores":8,"displayHz":60,"androidVersion":13.0}
+            {"action":"DEVICE_INFO","target":null,"value":null,"requiresGuidance":false,"confidence":1.0,"clarificationQuestion":null,"response":"You're running on a Nokia with a MediaTek chipset and 4GB of RAM. It's a solid setup for daily tasks!"}
+
             User: "can i play genshin impact?"
-            {"action":"GAME_COMPAT","target":"genshin impact","value":null,"requiresGuidance":false,"confidence":0.95,"clarificationQuestion":null}
+            DEVICE_CONTEXT: {"chipset":"MT6765V/WB","chipsetTier":"entry","totalRamGB":4.0}
+            GAME_DATABASE: [{"title":"Genshin Impact","minTier":"upper-mid","minRamGB":4.0}]
+            {"action":"GAME_COMPAT","target":"genshin impact","value":null,"requiresGuidance":false,"confidence":0.95,"clarificationQuestion":null,"response":"Genshin Impact might be a bit heavy for this device's entry-level chipset. You might see some lag."}
             
             User: "do the thing"
-            {"action":"UNKNOWN","target":null,"value":null,"requiresGuidance":false,"confidence":0.10,"clarificationQuestion":"I'm not sure what you'd like me to do. Could you describe it a bit more?"}
+            {"action":"UNKNOWN","target":null,"value":null,"requiresGuidance":false,"confidence":0.10,"clarificationQuestion":"I'm not sure what you'd like me to do. Could you describe it a bit more?","response":null}
         """.trimIndent()
     }
 }

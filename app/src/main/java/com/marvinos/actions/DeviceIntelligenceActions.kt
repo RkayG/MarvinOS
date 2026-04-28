@@ -1,6 +1,5 @@
 package com.marvinos.actions
 
-import com.marvinos.ai.DeviceContextBuilder
 import com.marvinos.ai.GeminiApiClient
 import com.marvinos.intelligence.DeviceProfiler
 import com.marvinos.intelligence.GameCompatChecker
@@ -16,7 +15,6 @@ import javax.inject.Singleton
 @Singleton
 class DeviceIntelligenceActions @Inject constructor(
     private val deviceProfiler: DeviceProfiler,
-    private val deviceContextBuilder: DeviceContextBuilder,
     private val geminiApiClient: GeminiApiClient,
     private val gameCompatChecker: GameCompatChecker
 ) {
@@ -26,30 +24,19 @@ class DeviceIntelligenceActions @Inject constructor(
      */
     suspend fun getDeviceInfo(): ActionResult {
         val profile = deviceProfiler.getCurrentProfile()
-        val prompt = deviceContextBuilder.buildDeviceInfoPrompt(
-            profile,
-            "Give me a short, friendly, plain-English summary of my device specs."
-        )
         
-        return try {
-            // Note: Since Intent Parser handles standard interactions, for direct Action executor fallbacks, 
-            // we could either return the raw profile or make a side API call.
-            // For MVP architecture compliance, we rely on the ViewModel's prior API call if possible, 
-            // but this action can generate its own fallback response.
-            val formattedResponse = """
-                📱 Device Overview:
-                • Chipset: ${profile.chipsetName} (${profile.chipsetTier})
-                • RAM: String.format("%.1f", ${profile.totalRamGb}) GB total
-                • Storage: String.format("%.1f", ${profile.freeStorageGb}) GB free out of String.format("%.1f", ${profile.totalStorageGb}) GB
-                • GPU: OpenGL ES ${profile.gpuGlesVersion}
-                • Display: ${profile.displayRefreshHz.toInt()}Hz
-                • Android Version: ${profile.androidVersion}
-            """.trimIndent()
-            
-            ActionResult.Success(formattedResponse)
-        } catch (e: Exception) {
-            ActionResult.Failed("Could not retrieve device info.")
-        }
+        // This is now a fallback in case Gemini doesn't return a "response" field
+        val formattedResponse = """
+            📱 Device Overview:
+            • Chipset: ${profile.chipsetName} (${profile.chipsetTier})
+            • RAM: ${"%.1f".format(profile.totalRamGb)} GB total
+            • Storage: ${"%.1f".format(profile.freeStorageGb)} GB free out of ${"%.1f".format(profile.totalStorageGb)} GB
+            • GPU: OpenGL ES ${profile.gpuGlesVersion}
+            • Display: ${profile.displayRefreshHz.toInt()}Hz
+            • Android Version: ${profile.androidVersion}
+        """.trimIndent()
+        
+        return ActionResult.Success(formattedResponse)
     }
 
     /**
