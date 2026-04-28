@@ -26,9 +26,12 @@ android {
         val localProperties = Properties()
         val localPropertiesFile = rootProject.file("local.properties")
         if (localPropertiesFile.exists()) {
-            localProperties.load(localPropertiesFile.inputStream())
+            localPropertiesFile.inputStream().use { localProperties.load(it) }
         }
-        val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY") ?: ""
+        val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY") 
+            ?: project.findProperty("GEMINI_API_KEY")?.toString() 
+            ?: ""
+
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
     }
 
