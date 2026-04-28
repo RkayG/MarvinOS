@@ -82,7 +82,8 @@ class DeviceProfiler @Inject constructor(
             cpuCores = cpuCores,
             gpuGlesVersion = gpuGlesVersion,
             displayRefreshHz = displayRefreshHz,
-            androidVersion = Build.VERSION.RELEASE.toFloatOrNull() ?: 0f
+            androidVersion = Build.VERSION.RELEASE.toFloatOrNull() ?: 0f,
+            brand = Build.MANUFACTURER
         )
     }
 }

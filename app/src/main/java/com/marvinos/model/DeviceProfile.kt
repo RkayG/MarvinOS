@@ -33,7 +33,8 @@ data class DeviceProfile(
     val cpuCores: Int = 0,
     val gpuGlesVersion: String = "unknown",
     val displayRefreshHz: Float = 60f,
-    val androidVersion: Float = 0f
+    val androidVersion: Float = 0f,
+    val brand: String = "unknown"
 ) {
     // Convenience helpers for prompt building
 

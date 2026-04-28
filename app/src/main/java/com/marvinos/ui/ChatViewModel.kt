@@ -33,13 +33,36 @@ class ChatViewModel @Inject constructor(
     private val gameCompatChecker: GameCompatChecker
 ) : ViewModel() {
 
-    private val _messages = MutableStateFlow<List<Message>>(
-        listOf(Message.assistant("Hi! I'm MarvinOS. What would you like to do?"))
-    )
+    private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages.asStateFlow()
 
     private val _pendingIntent = MutableStateFlow<ParsedIntent?>(null)
     val pendingIntent: StateFlow<ParsedIntent?> = _pendingIntent.asStateFlow()
+
+    init {
+        val profile = deviceProfiler.getCurrentProfile()
+        val brandRaw = profile.brand.lowercase()
+        
+        val knownBrands = setOf(
+            "samsung", "tecno", "infinix", "itel", "xiaomi",
+            "redmi", "realme", "oneplus", "google", "motorola",
+            "huawei", "oppo", "vivo", "nokia", "sony"
+        )
+
+        // Attempt to find a known brand within the manufacturer string (e.g., "HMD Global" containing nothing, or "Samsung" matching)
+        // Or if the manufacturer is "HMD Global", we might need to check Build.MODEL or Build.PRODUCT for "Nokia"
+        // But the user specifically asked for a whitelist check.
+        
+        val displayBrand = knownBrands.find { brandRaw.contains(it) }
+            ?: if (brandRaw.contains("hmd global")) "Nokia" else null
+
+        val greeting = if (displayBrand != null) {
+            "Hi! I'm MarvinOS. What would you like to do on your ${displayBrand.replaceFirstChar { it.uppercase() }}?"
+        } else {
+            "Hi! I'm MarvinOS. What would you like to do?"
+        }
+        _messages.value = listOf(Message.assistant(greeting))
+    }
 
     fun sendMessage(text: String) {
         if (text.isBlank()) return
@@ -100,7 +123,7 @@ class ChatViewModel @Inject constructor(
         val requiredPermission = permissionManager.getMissingPermissionFor(intent.action)
         if (requiredPermission != null) {
             val rationale = permissionManager.getRationaleFor(requiredPermission)
-            val settingsAction = com.marvinos.permissions.SpecialPermissionHelper().getSettingsActionFor(requiredPermission)
+            val settingsAction = permissionManager.specialPermissionHelper.getSettingsActionFor(requiredPermission)
             addMessage(Message.assistant(
                 "I need permission to do that.",
                 ActionResult.RequiresPermission(requiredPermission, settingsAction, rationale)
